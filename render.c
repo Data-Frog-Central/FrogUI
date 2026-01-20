@@ -1,18 +1,14 @@
 #include "render.h"
 #include "theme.h"
 #include "font.h"
+#include "multicore_includes.h"
+
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
 #include <unistd.h>
-#include <dirent.h>
 #include <stdbool.h>
-
-#ifdef SF2000
-#include "../../debug.h"
-#include "../../core.h"
-#endif
 
 #ifndef min
 #define min(a, b) ((a) < (b) ? (a) : (b))

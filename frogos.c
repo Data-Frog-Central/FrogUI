@@ -11,15 +11,6 @@
 #include <time.h>
 #include <ctype.h>
 
-#ifdef SF2000
-#include "../../stockfw.h"
-#include "../../debug.h"
-#include "../../core.h"
-#include "../../dirent.h" // For SF2000, use the custom dirent implementation
-#else
-#include <dirent.h>
-#endif
-
 #include "libretro.h"
 #include "font.h"
 #include "render.h"
@@ -28,6 +19,7 @@
 #include "favorites.h"
 #include "settings.h"
 #include "frogos.h"
+#include "multicore_includes.h"
 
 // Console to core name mapping
 typedef struct {

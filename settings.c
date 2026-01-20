@@ -2,17 +2,12 @@
 #include "theme.h"
 #include "font.h"
 #include "frogos.h"
+#include "multicore_includes.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
-#ifdef SF2000
-#include "../../debug.h"
-#else
-// For non-SF2000 builds, use printf as fallback
-#define xlog printf
-#endif
 
 static SettingsOption settings[MAX_SETTINGS];
 static int settings_count = 0;
