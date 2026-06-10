@@ -19,11 +19,6 @@ static int settings_saving = 0;  // Flag to indicate save in progress
 // Track current config file being edited
 static char current_config_path[512] = "";
 
-// Get config directory
-static const char* get_config_directory(void) {
-	return "/mnt/sda1/configs";
-}
-
 // Forward declarations
 static int settings_load_file(const char *config_path);
 static void apply_theme_from_settings(void);
@@ -124,7 +119,7 @@ int settings_load(void) {
     char config_path[512];
 
     // Use standard location: /mnt/sda1/configs/multicore.opt
-    snprintf(config_path, sizeof(config_path), "/mnt/sda1/configs/multicore.opt");
+    snprintf(config_path, sizeof(config_path), "%s/configs/%s.opt", system_dir, OS_NAME_LOWER);
     strncpy(current_config_path, config_path, sizeof(current_config_path) - 1);
     return settings_load_file(config_path);
 }
@@ -143,10 +138,8 @@ int settings_load_core(const char *core_name) {
         }
     }
 
-    const char *base_dir = get_config_directory();
-
     // Try lowercase directory name first: /mnt/sda1/configs/{core_lower}/{core}.opt
-    snprintf(config_path, sizeof(config_path), "%s/%s/%s.opt", base_dir, core_name_lower, core_name);
+    snprintf(config_path, sizeof(config_path), "%s/configs/%s/%s.opt", system_dir, core_name_lower, core_name);
     FILE *test = fopen(config_path, "r");
     if (test) {
         fclose(test);
@@ -155,7 +148,7 @@ int settings_load_core(const char *core_name) {
     }
 
     // Try capitalized directory name: /mnt/sda1/configs/{core}/{core}.opt
-    snprintf(config_path, sizeof(config_path), "%s/%s/%s.opt", base_dir, core_name, core_name);
+    snprintf(config_path, sizeof(config_path), "%s/configs/%s/%s.opt", system_dir, core_name, core_name);
     strncpy(current_config_path, config_path, sizeof(current_config_path) - 1);
     return settings_load_file(config_path);
 }
@@ -599,11 +592,6 @@ const char* settings_get_value(const char *setting_name) {
     return NULL;
 }
 
-// Get default configs directory - always use /mnt/sda1/default_configs
-static const char* get_default_config_directory(void) {
-    return "/mnt/sda1/default_configs";
-}
-
 // Reset settings to defaults by copying from default_configs
 int settings_reset_to_defaults(void) {
     if (current_config_path[0] == '\0') {
@@ -614,7 +602,6 @@ int settings_reset_to_defaults(void) {
 
     // Determine the default config path
     char default_path[512];
-    const char *default_base = get_default_config_directory();
 
     // Extract core name from filename
     const char *filename = strrchr(current_config_path, '/');
@@ -634,10 +621,10 @@ int settings_reset_to_defaults(void) {
     }
 
     // Build path: /mnt/sda1/default_configs/{coreName}/{coreName}.opt
-    if (strcmp(core_name, "multicore") == 0) {
-        snprintf(default_path, sizeof(default_path), "%s/multicore.opt", default_base);
+    if (strcmp(core_name, OS_NAME_LOWER) == 0) {
+        snprintf(default_path, sizeof(default_path), "%s/default_configs/%s.opt", system_dir, OS_NAME_LOWER);
     } else {
-        snprintf(default_path, sizeof(default_path), "%s/%s/%s.opt", default_base, core_name, core_name);
+        snprintf(default_path, sizeof(default_path), "%s/default_configs/%s/%s.opt", system_dir, core_name, core_name);
     }
 
     FILE *default_file = fopen(default_path, "r");

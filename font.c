@@ -1,6 +1,7 @@
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "stb_truetype.h"
 #include "font.h"
+#include "frogos.h"
 #include "settings.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,7 +25,7 @@ static int load_font_file(const char *font_filename) {
 
     // Build search paths for the font
     char font_paths[2][256];
-    snprintf(font_paths[0], sizeof(font_paths[0]), "/mnt/sda1/frogui/fonts/%s", font_filename);
+    snprintf(font_paths[0], sizeof(font_paths[0]), "%s/frogui/fonts/%s", system_dir, font_filename);
     snprintf(font_paths[1], sizeof(font_paths[1]), "fonts/%s", font_filename);
 
     FILE *fp = NULL;

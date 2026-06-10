@@ -5,5 +5,6 @@
 
 void apply_settings(void);
 extern bool show_multicore_opt;
+extern const char *system_dir;
 
 #endif

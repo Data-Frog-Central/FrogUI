@@ -1,8 +1,9 @@
 #include "favorites.h"
+#include "frogos.h"
 #include <stdio.h>
 #include <string.h>
 
-#define FAVORITES_FILE "/mnt/sda1/frogui/favorites.txt"
+char favorites_file[128];
 
 // Favorites state
 static FavoriteGame favorites[MAX_FAVORITES];
@@ -10,11 +11,12 @@ static int favorite_count = 0;
 
 void favorites_init(void) {
     favorite_count = 0;
+    snprintf(favorites_file, sizeof(favorites_file), "%s/frogui/favorites.txt", system_dir);
     favorites_load();
 }
 
 void favorites_load(void) {
-    FILE *fp = fopen(FAVORITES_FILE, "r");
+    FILE *fp = fopen(favorites_file, "r");
     if (!fp) {
         favorite_count = 0;
         return;
@@ -51,7 +53,7 @@ void favorites_load(void) {
 }
 
 void favorites_save(void) {
-    FILE *fp = fopen(FAVORITES_FILE, "w");
+    FILE *fp = fopen(favorites_file, "w");
     if (!fp) return;
 
     for (int i = 0; i < favorite_count; i++) {

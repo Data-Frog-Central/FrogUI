@@ -1,4 +1,5 @@
 #include "recent_games.h"
+#include "frogos.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -6,13 +7,16 @@
 static RecentGame recent_games[MAX_RECENT_GAMES];
 static int recent_count = 0;
 
+char history_file[128];
+
 void recent_games_init(void) {
     recent_count = 0;
+    snprintf(history_file, sizeof(history_file), "%s/frogui/game_history.txt", system_dir);
     recent_games_load();
 }
 
 void recent_games_load(void) {
-    FILE *fp = fopen(HISTORY_FILE, "r");
+    FILE *fp = fopen(history_file, "r");
     if (!fp) {
         recent_count = 0;
         return;
@@ -59,7 +63,7 @@ void recent_games_load(void) {
 }
 
 void recent_games_save(void) {
-    FILE *fp = fopen(HISTORY_FILE, "w");
+    FILE *fp = fopen(history_file, "w");
     if (!fp) return;
     
     for (int i = 0; i < recent_count; i++) {

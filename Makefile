@@ -20,8 +20,21 @@ ifeq ($(STATIC_LINKING), 1)
 EXT := a
 endif
 
+# Source files
+SOURCES_C := frogos.c font.c render.c recent_games.c settings.c theme.c favorites.c
+
+# Unix 
+ifeq ($(platform), unix)
+	TARGET := $(TARGET_NAME)_libretro.so
+   CC := gcc
+   CXX = g++
+   AR := ar
+   CFLAGS += -fPIC -Wall -O2 -g
+   LDFLAGS += -shared -Wl,--no-undefined
+   SOURCES_C += fallback_functions.c
+   STATIC_LINKING = 0
 # SF2000 platform
-ifeq ($(platform), sf2000)
+else ifeq ($(platform), sf2000)
    TARGET := _libretro_$(platform).a
    MIPS=/opt/mips32-mti-elf/2019.09-03-2/bin/mips-mti-elf-
    CC = $(MIPS)gcc
@@ -29,15 +42,23 @@ ifeq ($(platform), sf2000)
    AR = $(MIPS)ar
    CFLAGS = -EL -march=mips32 -mtune=mips32 -msoft-float -G0 -mno-abicalls -fno-pic
    CFLAGS += -ffast-math -fomit-frame-pointer -ffunction-sections -fdata-sections
-   CFLAGS += -O3 -DSF2000 -DNDEBUG  # -O3 for speed, NDEBUG removes asserts
+   CFLAGS += -O3 -DNDEBUG  # -O3 for speed, NDEBUG removes asserts
+   CFLAGS += -DSF2000 -I ../../../
    CXXFLAGS := $(CFLAGS)
    STATIC_LINKING = 1
-else
-   # Default unix build for testing
-   EXT ?= so
-   TARGET := $(TARGET_NAME)_libretro.$(EXT)
-   fpic := -fPIC
-   SHARED := -shared -Wl,--version-script=link.T -Wl,--no-undefined
+else ifeq ($(platform), dartos)
+   TARGET := _libretro_$(platform).a
+   MIPS=/opt/mips32-mti-elf/2019.09-03-2/bin/mips-mti-elf-
+   CC = $(MIPS)gcc
+   CXX = $(MIPS)g++
+   AR = $(MIPS)ar
+   CFLAGS = -EL -march=mips32 -mtune=mips32 -msoft-float -G0 -mno-abicalls -fno-pic
+   CFLAGS += -ffast-math -fomit-frame-pointer -ffunction-sections -fdata-sections
+   CFLAGS += -O3 -DNDEBUG  # -O3 for speed, NDEBUG removes asserts
+   CFLAGS += -DDARTOS -I ../../include
+   CXXFLAGS := $(CFLAGS)
+   SOURCES_C += fallback_functions.c
+   STATIC_LINKING = 1
 endif
 
 LDFLAGS += $(LIBM)
@@ -49,9 +70,6 @@ else
    CFLAGS += -Os
    CXXFLAGS += -Os
 endif
-
-# Source files
-SOURCES_C := frogos.c font.c render.c recent_games.c settings.c theme.c favorites.c
 
 OBJECTS := $(SOURCES_C:.c=.o)
 

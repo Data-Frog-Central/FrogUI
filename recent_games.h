@@ -2,7 +2,6 @@
 #define RECENT_GAMES_H
 
 #define MAX_RECENT_GAMES 10
-#define HISTORY_FILE "/mnt/sda1/frogui/game_history.txt"
 
 // Recent games structure
 typedef struct {

@@ -123,11 +123,14 @@ static void show_core_settings(const char* core_name) {
 #define SCREEN_WIDTH 320
 #define SCREEN_HEIGHT 240
 #define MAX_PATH_LEN 512
-#define ROMS_PATH "/mnt/sda1/ROMS"
 #define INITIAL_ENTRIES_CAPACITY 64
 
+const char *system_dir = NULL;
+char roms_path[128];
+char os_settings_title[64];
+char empty_dirs_cache_file[256];
+
 // Empty folders cache - avoid rescanning on every navigation
-#define EMPTY_DIRS_CACHE_FILE "/mnt/sda1/configs/frogui_empty_dirs.cache"
 #define MAX_EMPTY_DIRS 256
 static char empty_dirs[MAX_EMPTY_DIRS][64];  // Store folder names (not full paths)
 static int empty_dirs_count = 0;
@@ -143,7 +146,7 @@ static void load_empty_dirs_cache(void) {
     empty_dirs_loaded = 1;
     empty_dirs_count = 0;
 
-    FILE *fp = fopen(EMPTY_DIRS_CACHE_FILE, "r");
+    FILE *fp = fopen(empty_dirs_cache_file, "r");
     if (!fp) {
         // Cache file doesn't exist - rebuild it
         xlog("Empty dirs cache: file not found, rebuilding...\n");
@@ -181,7 +184,7 @@ static void rebuild_empty_dirs_cache(void) {
     show_cache_rebuild_screen();
     empty_dirs_count = 0;
 
-    DIR *dir = opendir(ROMS_PATH);
+    DIR *dir = opendir(roms_path);
     if (!dir) return;
 
     struct dirent *ent;
@@ -200,7 +203,7 @@ static void rebuild_empty_dirs_cache(void) {
         entry_name[sizeof(entry_name) - 1] = '\0';
 
         char full_path[MAX_PATH_LEN];
-        snprintf(full_path, sizeof(full_path), "%s/%s", ROMS_PATH, entry_name);
+        snprintf(full_path, sizeof(full_path), "%s/%s", roms_path, entry_name);
 
         // Check if directory is empty via opendir/readdir
         DIR *check = opendir(full_path);
@@ -225,7 +228,7 @@ static void rebuild_empty_dirs_cache(void) {
     closedir(dir);
 
     // Save to file
-    FILE *fp = fopen(EMPTY_DIRS_CACHE_FILE, "w");
+    FILE *fp = fopen(empty_dirs_cache_file, "w");
     if (fp) {
         for (int i = 0; i < empty_dirs_count; i++) {
             fprintf(fp, "%s\n", empty_dirs[i]);
@@ -323,8 +326,12 @@ bool sfx_enabled = true;
 
 void init_direct_loader(const char* core_name, const char* directory, const char* filename) {
     // Don't set ptr_gs_run_folder - currently inherit from menu core for savestates to work
-    // TODO: Find a way to force ptr_gs_run_folder to be /mnt/sda1/ROMS or /mnt/sda1/ARCADE (unified save states folder)
-    // TODO: Replace second core_name with full directory (besides /mnt/sda1) and seperate core_name from directory
+    // TODO: Find a way to force ptr_gs_run_folder to be /sdcard/ROMS or /sdcard/ARCADE (unified save states folder)
+    // TODO: Replace second core_name with full directory (besides /sdcard/) and seperate core_name from directory
+    #if defined(DARTOS)
+    sprintf(frontend_functions.temp_rom_path, "%s/ROMS/%s/%s", system_dir, directory, filename);
+    sprintf(frontend_functions.temp_core_path, "%s", core_name);
+    #else
     sprintf((char *)ptr_gs_run_game_file, "%s;%s;%s.gba", core_name, directory, filename); // Emulate a stub directory, stub doesn't have to exist (loader fixes later)
     sprintf((char *)ptr_gs_run_game_name, "%s", filename); // Expects the filename without any extension
 
@@ -333,6 +340,7 @@ void init_direct_loader(const char* core_name, const char* directory, const char
     if (dot_position != NULL) {
         *dot_position = '\0';
     }
+    #endif 
 
     // Add to recent history
     recent_games_add(core_name, filename, directory);
@@ -426,10 +434,11 @@ static const char *get_basename(const char *path) {
 
 // Get console_file (or folder_name if not found) from a full ROM path
 static void get_corename(const char *path, char *core_name, size_t size) {
-    const char *prefix = "/mnt/sda1/ROMS/";
     const char *start;
     const char *end;
     char folder[64];
+    char prefix[64];
+    snprintf(prefix, sizeof(prefix), "%s/ROMS/", system_dir);
 
     // Skip prefix if present
     if (strncmp(path, prefix, strlen(prefix)) == 0)
@@ -494,7 +503,7 @@ static void get_scrolling_text(const char *full_name, int is_selected, char *dis
     int scroll_len = strlen(scroll_text);
 
     // Check if we're in main menu or special views (no thumbnails)
-    int in_main_menu = (strcmp(current_path, ROMS_PATH) == 0 ||
+    int in_main_menu = (strcmp(current_path, roms_path) == 0 ||
                         strcmp(current_path, "RECENT_GAMES") == 0 ||
                         strcmp(current_path, "FAVORITES") == 0 ||
                         strcmp(current_path, "TOOLS") == 0 ||
@@ -575,7 +584,7 @@ static void load_current_thumbnail() {
             const RecentGame *recent_game = &recent_list[selected_index];
 
             if (recent_game->full_path[0] != '\0') {
-                snprintf(file_path, sizeof(file_path), "/mnt/sda1/ROMS/%s/%s", recent_game->full_path, recent_game->game_name);
+                snprintf(file_path, sizeof(file_path), "%s/ROMS/%s/%s", system_dir, recent_game->full_path, recent_game->game_name);
             } else {
                 // No full path available, skip thumbnail
                 thumbnail_cache_valid = 0;
@@ -595,7 +604,7 @@ static void load_current_thumbnail() {
             const FavoriteGame *favorite_game = &favorites_list[selected_index];
 
             if (favorite_game->full_path[0] != '\0') {
-                snprintf(file_path, sizeof(file_path), "/mnt/sda1/ROMS/%s/%s", favorite_game->full_path, favorite_game->game_name);
+                snprintf(file_path, sizeof(file_path), "%s/ROMS/%s/%s", system_dir, favorite_game->full_path, favorite_game->game_name);
             } else {
                 // No full path available, skip thumbnail
                 thumbnail_cache_valid = 0;
@@ -692,7 +701,7 @@ static void show_recent_games(void) {
         // Only show back entry if no recent games
         ensure_entries_capacity(entry_count + 1);
         strncpy(entries[entry_count].name, "..", sizeof(entries[entry_count].name) - 1);
-        strncpy(entries[entry_count].path, ROMS_PATH, sizeof(entries[entry_count].path) - 1);
+        strncpy(entries[entry_count].path, roms_path, sizeof(entries[entry_count].path) - 1);
         entries[entry_count].is_dir = 1;
         entry_count++;
     } else {
@@ -708,7 +717,7 @@ static void show_recent_games(void) {
 
         // Add back entry after recent games
         strncpy(entries[entry_count].name, "..", sizeof(entries[entry_count].name) - 1);
-        strncpy(entries[entry_count].path, ROMS_PATH, sizeof(entries[entry_count].path) - 1);
+        strncpy(entries[entry_count].path, roms_path, sizeof(entries[entry_count].path) - 1);
         entries[entry_count].is_dir = 1;
         entry_count++;
     }
@@ -737,7 +746,7 @@ static void show_favorites(void) {
         // Only show back entry if no favorites
         ensure_entries_capacity(entry_count + 1);
         strncpy(entries[entry_count].name, "..", sizeof(entries[entry_count].name) - 1);
-        strncpy(entries[entry_count].path, ROMS_PATH, sizeof(entries[entry_count].path) - 1);
+        strncpy(entries[entry_count].path, roms_path, sizeof(entries[entry_count].path) - 1);
         entries[entry_count].is_dir = 1;
         entry_count++;
     } else {
@@ -753,7 +762,7 @@ static void show_favorites(void) {
 
         // Add back entry after favorites
         strncpy(entries[entry_count].name, "..", sizeof(entries[entry_count].name) - 1);
-        strncpy(entries[entry_count].path, ROMS_PATH, sizeof(entries[entry_count].path) - 1);
+        strncpy(entries[entry_count].path, roms_path, sizeof(entries[entry_count].path) - 1);
         entries[entry_count].is_dir = 1;
         entry_count++;
     }
@@ -798,7 +807,7 @@ static void show_tools_menu(void) {
 
     // Add back entry
     strncpy(entries[entry_count].name, "..", sizeof(entries[entry_count].name) - 1);
-    strncpy(entries[entry_count].path, ROMS_PATH, sizeof(entries[entry_count].path) - 1);
+    strncpy(entries[entry_count].path, roms_path, sizeof(entries[entry_count].path) - 1);
     entries[entry_count].is_dir = 1;
     entry_count++;
 
@@ -821,7 +830,7 @@ static void show_utils_menu(void) {
     
     // Scan js2000 directory for files
     char js2000_path[MAX_PATH_LEN];
-    snprintf(js2000_path, sizeof(js2000_path), "%s/js2000", ROMS_PATH);
+    snprintf(js2000_path, sizeof(js2000_path), "%s/js2000", roms_path);
 
     DIR *dir = opendir(js2000_path);
     if (dir) {
@@ -896,7 +905,7 @@ static void scan_directory(const char *path) {
     reset_navigation_state();
 
     // Store whether we're at root for recent games insertion later
-    int is_root = (strcmp(path, ROMS_PATH) == 0);
+    int is_root = (strcmp(path, roms_path) == 0);
 
     // Add parent directory entry if not at root
     if (!is_root) {
@@ -1039,7 +1048,7 @@ static void render_settings_menu() {
     }
 
     // Draw title
-    if (show_multicore_opt) font_draw_text(framebuffer, SCREEN_WIDTH, SCREEN_HEIGHT, PADDING, 10, "MULTICORE SETTINGS", COLOR_HEADER);
+    if (show_multicore_opt) font_draw_text(framebuffer, SCREEN_WIDTH, SCREEN_HEIGHT, PADDING, 10, os_settings_title, COLOR_HEADER);
     else font_draw_text(framebuffer, SCREEN_WIDTH, SCREEN_HEIGHT, PADDING, 10, "CORE SETTINGS", COLOR_HEADER);
 
     // Draw the label in top-right
@@ -1160,9 +1169,9 @@ static void render_credits_screen() {
     font_draw_text(framebuffer, SCREEN_WIDTH, SCREEN_HEIGHT, legend_x, legend_y, legend, COLOR_LEGEND);
 }
 
-void clean_path(char *path)
-{
-    const char *prefix = "/mnt/sda1/ROMS/";
+void clean_path(char *path) {
+    char prefix[64];
+    snprintf(prefix, sizeof(prefix), "%s/ROMS/", system_dir);
     size_t len = strlen(prefix);
 
     // remove prefix
@@ -1282,7 +1291,7 @@ static void render_menu() {
 
     // Draw header with current folder name
     const char *display_path = current_path;
-    if (strcmp(current_path, ROMS_PATH) == 0) {
+    if (strcmp(current_path, roms_path) == 0) {
         display_path = "FROGUI: SYSTEMS";  // Marketing branding
     } else {
         // Show just the folder name, not full path
@@ -1321,7 +1330,7 @@ static void render_menu() {
         // Check if this item is favorited
         int is_favorited = 0;
         if (!entries[i].is_dir &&
-            strcmp(current_path, ROMS_PATH) != 0 &&
+            strcmp(current_path, roms_path) != 0 &&
             strcmp(current_path, "RECENT_GAMES") != 0 &&
             strcmp(current_path, "FAVORITES") != 0 &&
             strcmp(current_path, "TOOLS") != 0 &&
@@ -1348,7 +1357,7 @@ static void render_menu() {
     if (strcmp(current_path, "FAVORITES") == 0) {
         // In favorites menu, show "X - REMOVE"
         x_button_mode = LEGEND_X_REMOVE;
-    } else if (strcmp(current_path, ROMS_PATH) != 0 &&
+    } else if (strcmp(current_path, roms_path) != 0 &&
                strcmp(current_path, "RECENT_GAMES") != 0 &&
                strcmp(current_path, "TOOLS") != 0 &&
                strcmp(current_path, "UTILS") != 0 &&
@@ -1422,7 +1431,7 @@ static void pick_random_game(void) {
         attempts++;
 
         // Pick a random console directory from root
-        strncpy(current_path, ROMS_PATH, sizeof(current_path) - 1);
+        strncpy(current_path, roms_path, sizeof(current_path) - 1);
         scan_directory(current_path);
 
         // Filter out non-console entries
@@ -1438,7 +1447,7 @@ static void pick_random_game(void) {
         }
 
         if (valid_console_count == 0) {
-            strncpy(current_path, ROMS_PATH, sizeof(current_path) - 1);
+            strncpy(current_path, roms_path, sizeof(current_path) - 1);
             scan_directory(current_path);
             return;
         }
@@ -1499,7 +1508,7 @@ static void pick_random_game(void) {
         }
     }
 
-    strncpy(current_path, ROMS_PATH, sizeof(current_path) - 1);
+    strncpy(current_path, roms_path, sizeof(current_path) - 1);
     scan_directory(current_path);
 }
 
@@ -1745,7 +1754,9 @@ static uint8_t *bgm_file;
 static size_t bgm_file_size;
 
 void audio_init(void) {
-    if (!load_file("/mnt/sda1/frogui/menu_music.wav", &bgm_file, &bgm_file_size)) {
+    char music_path[128];
+    snprintf(music_path, sizeof(music_path), "%s/frogui/menu_music.wav", system_dir);
+    if (!load_file(music_path, &bgm_file, &bgm_file_size)) {
         bgm_enabled = false;
         return;
     }
@@ -1766,7 +1777,9 @@ bool nav_init_once = false;
 
 void navigation_sfx(void) {
     if (!nav_init_once) {
-        if (!load_file("/mnt/sda1/frogui/navigation.wav", &nav_file, &nav_file_size)) {
+        char nav_sound_path[128];
+        snprintf(nav_sound_path, sizeof(nav_sound_path), "%s/frogui/navigation.wav", system_dir);
+        if (!load_file(nav_sound_path, &nav_file, &nav_file_size)) {
             sfx_enabled = false;
             return;
         }
@@ -1837,14 +1850,14 @@ static void handle_input() {
             // Main menu settings - reload and show multicore.opt
             settings_load();
             settings_show_menu();
-        } else if (strcmp(current_path, ROMS_PATH) == 0) { 
+        } else if (strcmp(current_path, roms_path) == 0) { 
             show_core_settings("FrogUI");
         } else {
             // Check if we're in a console folder that has core-specific settings
             char console_folder[256];
             const char *slash = strrchr(current_path, '/');
             if (slash && slash != current_path) {
-                // Extract folder name from path like "/mnt/sda1/ROMS/gb"
+                // Extract folder name from path like "/sdcard/ROMS/gb"
                 strcpy(console_folder, slash + 1);
                 const char *core_name = get_core_name_for_console(console_folder);
                 if (core_name) {
@@ -2056,7 +2069,7 @@ static void handle_input() {
             strcmp(current_path, "UTILS") != 0 &&
             strcmp(current_path, "HOTKEYS") != 0 &&
             strcmp(current_path, "CREDITS") != 0 &&
-            strcmp(current_path, ROMS_PATH) != 0) {
+            strcmp(current_path, roms_path) != 0) {
 
             // Get core name and filename
             char core_name[256];
@@ -2151,7 +2164,7 @@ static void handle_input() {
                 if (strcmp(entry->path, "REBUILD_CACHE") == 0) {
                     rebuild_empty_dirs_cache();
                     // Go back to ROMS root after rebuild
-                    strncpy(current_path, ROMS_PATH, sizeof(current_path) - 1);
+                    strncpy(current_path, roms_path, sizeof(current_path) - 1);
                     scan_directory(current_path);
                     return;
                 }
@@ -2238,7 +2251,7 @@ static void handle_input() {
     if (prev_input[3] && !b) {
         if (strcmp(current_path, "RECENT_GAMES") == 0) {
             // Go back from Recent games to main ROMS directory
-            strncpy(current_path, ROMS_PATH, sizeof(current_path) - 1);
+            strncpy(current_path, roms_path, sizeof(current_path) - 1);
             scan_directory(current_path);
             // Restore selection to "Recent games" entry
             for (int i = 0; i < entry_count; i++) {
@@ -2252,7 +2265,7 @@ static void handle_input() {
             }
         } else if (strcmp(current_path, "FAVORITES") == 0) {
             // Go back from Favorites to main ROMS directory
-            strncpy(current_path, ROMS_PATH, sizeof(current_path) - 1);
+            strncpy(current_path, roms_path, sizeof(current_path) - 1);
             scan_directory(current_path);
             // Restore selection to "Favorites" entry
             for (int i = 0; i < entry_count; i++) {
@@ -2266,7 +2279,7 @@ static void handle_input() {
             }
         } else if (strcmp(current_path, "TOOLS") == 0) {
             // Go back from Tools to main ROMS directory
-            strncpy(current_path, ROMS_PATH, sizeof(current_path) - 1);
+            strncpy(current_path, roms_path, sizeof(current_path) - 1);
             scan_directory(current_path);
             // Restore selection to "Tools" entry
             for (int i = 0; i < entry_count; i++) {
@@ -2290,7 +2303,7 @@ static void handle_input() {
             // Go back from Utils to Tools
             show_tools_menu();
             strncpy(current_path, "TOOLS", sizeof(current_path) - 1);
-        } else if (strcmp(current_path, ROMS_PATH) != 0) {
+        } else if (strcmp(current_path, roms_path) != 0) {
             // Remember which directory we're leaving so we can restore position
             char prev_dir[256];
             char *last_slash = strrchr(current_path, '/');
@@ -2333,8 +2346,49 @@ static void handle_input() {
     prev_input[9] = x;
 }
 
+const char *parent_dir(const char *path) {
+    char *buf;
+    char *last_slash;
+
+    if (!path) return NULL;
+
+    buf = strdup(path);
+    if (!buf) return NULL;
+
+    // remove trailing slash
+    size_t len = strlen(buf);
+    if (len > 1 && buf[len - 1] == '/')
+        buf[len - 1] = '\0';
+
+    last_slash = strrchr(buf, '/');
+    if (last_slash)
+    {
+        if (last_slash == buf)
+            last_slash[1] = '\0';
+        else
+            *last_slash = '\0';
+    }
+
+    return buf;
+}
+
 // Libretro API implementation
 void retro_init(void) {
+
+    // Set the system directory
+    system_dir = NULL;
+    if (environ_cb(RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY, &system_dir) || !system_dir) {
+        system_dir = parent_dir(system_dir);
+    } else system_dir = "/mnt/sda1"; // No system directory available
+
+    snprintf(roms_path, sizeof(roms_path), "%s/ROMS", system_dir);
+    snprintf(empty_dirs_cache_file, sizeof(empty_dirs_cache_file), "%s/configs/frogui_empty_dirs.cache", system_dir);
+
+    strcpy(os_settings_title, OS_NAME_LOWER);
+    for (char *p = os_settings_title; *p; ++p)
+        *p = (char)toupper((unsigned char)*p);
+    strcat(os_settings_title, " SETTINGS");
+
     strcpy(ptr_gs_run_game_name, "FrogUI"); // Sets the name for the pause menu
     framebuffer = (uint16_t*)malloc(SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(uint16_t));
 
@@ -2348,7 +2402,10 @@ void retro_init(void) {
     recent_games_init();
     favorites_init();
     settings_init();
-    load_console_mappings("/mnt/sda1/frogui/console_mappings.opt");
+
+    char console_mappings_path[128];
+    snprintf(console_mappings_path, sizeof(console_mappings_path), "%s/frogui/console_mappings.opt", system_dir);
+    load_console_mappings(console_mappings_path);
 
     recent_games_load();
     favorites_load();
@@ -2437,7 +2494,7 @@ void retro_set_video_refresh(retro_video_refresh_t cb) {
 }
 
 void retro_reset(void) {
-    strncpy(current_path, ROMS_PATH, sizeof(current_path) - 1);
+    strncpy(current_path, roms_path, sizeof(current_path) - 1);
     scan_directory(current_path);
 }
 
@@ -2478,7 +2535,7 @@ bool retro_load_game(const struct retro_game_info *info) {
 
     // Skip directory scan if we're auto-launching a game (faster boot)
     if (!game_queued) {
-        strncpy(current_path, ROMS_PATH, sizeof(current_path) - 1);
+        strncpy(current_path, roms_path, sizeof(current_path) - 1);
         scan_directory(current_path);
     }
     

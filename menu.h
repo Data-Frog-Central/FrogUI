@@ -2,7 +2,6 @@
 #define MENU_H
 
 #define MAX_PATH_LEN 512
-#define ROMS_PATH "/mnt/sda1/ROMS"
 
 // Menu entry structure
 typedef struct {
