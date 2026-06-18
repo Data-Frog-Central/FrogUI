@@ -11,7 +11,7 @@ static int favorite_count = 0;
 
 void favorites_init(void) {
     favorite_count = 0;
-    snprintf(favorites_file, sizeof(favorites_file), "%s/frogui/favorites.txt", system_dir);
+    snprintf(favorites_file, sizeof(favorites_file), "%s/favorites.txt", assets_dir);
     favorites_load();
 }
 

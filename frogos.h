@@ -5,6 +5,7 @@
 
 void apply_settings(void);
 extern bool show_multicore_opt;
-extern const char *system_dir;
+extern char assets_dir[128];
+extern char configs_dir[128];
 
 #endif

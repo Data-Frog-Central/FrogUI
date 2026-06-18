@@ -23,16 +23,22 @@ extern void fallback_wrap_run_game(const char *path, int state);
 #include "libretro.h"
 #include <sys/stat.h>
 #include <core_api.h>
+#include <dartos.h>
 #include <frontend_functions.h>
 #define load_rgb565_image fallback_load_rgb565_image
 #define is_zip_wqw_file fallback_is_zip_wqw_file
 #define os_get_tick_count xTaskGetTickCount
-#define wrap_run_game close_emulator
+#define wrap_run_game fallback_wrap_run_game
 extern uint32_t g_preview_width;
 extern uint32_t g_preview_height;
+extern char game_name_buf[256];
+extern char core_name_buf[256];
 extern char *ptr_gs_run_game_name;
 #else 
 #define OS_NAME_LOWER "linux"
+#include <sys/types.h>
+#include <unistd.h>
+#include <stdlib.h>
 #define xlog printf // For non-SF2000 builds, use printf as fallback
 #define load_rgb565_image fallback_load_rgb565_image
 #define is_zip_wqw_file fallback_is_zip_wqw_file
@@ -40,8 +46,9 @@ extern char *ptr_gs_run_game_name;
 #define wrap_run_game fallback_wrap_run_game
 extern uint32_t g_preview_width;
 extern uint32_t g_preview_height;
+extern char game_name_buf[256];
+extern char core_name_buf[256];
 extern char *ptr_gs_run_game_name;
-extern char *ptr_gs_run_game_file;
 #endif
 
 #endif

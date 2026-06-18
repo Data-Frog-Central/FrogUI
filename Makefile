@@ -31,6 +31,7 @@ ifeq ($(platform), unix)
    AR := ar
    CFLAGS += -fPIC -Wall -O2 -g
    LDFLAGS += -shared -Wl,--no-undefined
+   CFLAGS += -DUNIX
    SOURCES_C += fallback_functions.c
    STATIC_LINKING = 0
 # SF2000 platform
@@ -55,7 +56,7 @@ else ifeq ($(platform), dartos)
    CFLAGS = -EL -march=mips32 -mtune=mips32 -msoft-float -G0 -mno-abicalls -fno-pic
    CFLAGS += -ffast-math -fomit-frame-pointer -ffunction-sections -fdata-sections
    CFLAGS += -O3 -DNDEBUG  # -O3 for speed, NDEBUG removes asserts
-   CFLAGS += -DDARTOS -I ../../include
+   CFLAGS += -DDARTOS -I ../../include -I ../../libretro-common/include
    CXXFLAGS := $(CFLAGS)
    SOURCES_C += fallback_functions.c
    STATIC_LINKING = 1

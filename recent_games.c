@@ -11,7 +11,7 @@ char history_file[128];
 
 void recent_games_init(void) {
     recent_count = 0;
-    snprintf(history_file, sizeof(history_file), "%s/frogui/game_history.txt", system_dir);
+    snprintf(history_file, sizeof(history_file), "%s/game_history.txt", assets_dir);
     recent_games_load();
 }
 

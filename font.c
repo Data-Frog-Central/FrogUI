@@ -25,7 +25,7 @@ static int load_font_file(const char *font_filename) {
 
     // Build search paths for the font
     char font_paths[2][256];
-    snprintf(font_paths[0], sizeof(font_paths[0]), "%s/frogui/fonts/%s", system_dir, font_filename);
+    snprintf(font_paths[0], sizeof(font_paths[0]), "%s/fonts/%s", assets_dir, font_filename);
     snprintf(font_paths[1], sizeof(font_paths[1]), "fonts/%s", font_filename);
 
     FILE *fp = NULL;

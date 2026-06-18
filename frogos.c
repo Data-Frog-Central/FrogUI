@@ -125,8 +125,9 @@ static void show_core_settings(const char* core_name) {
 #define MAX_PATH_LEN 512
 #define INITIAL_ENTRIES_CAPACITY 64
 
-const char *system_dir = NULL;
+char assets_dir[128];
 char roms_path[128];
+char configs_dir[128];
 char os_settings_title[64];
 char empty_dirs_cache_file[256];
 
@@ -309,7 +310,7 @@ static void reset_navigation_state(void) {
 static retro_video_refresh_t video_cb = NULL;
 static retro_audio_sample_t audio_cb = NULL;
 static retro_audio_sample_batch_t audio_batch_cb = NULL;
-static retro_environment_t environ_cb = NULL;
+retro_environment_t environ_cb = NULL;
 static retro_input_poll_t input_poll_cb = NULL;
 static retro_input_state_t input_state_cb = NULL;
 
@@ -328,10 +329,7 @@ void init_direct_loader(const char* core_name, const char* directory, const char
     // Don't set ptr_gs_run_folder - currently inherit from menu core for savestates to work
     // TODO: Find a way to force ptr_gs_run_folder to be /sdcard/ROMS or /sdcard/ARCADE (unified save states folder)
     // TODO: Replace second core_name with full directory (besides /sdcard/) and seperate core_name from directory
-    #if defined(DARTOS)
-    sprintf(frontend_functions.temp_rom_path, "%s/ROMS/%s/%s", system_dir, directory, filename);
-    sprintf(frontend_functions.temp_core_path, "%s", core_name);
-    #else
+#if defined(SF2000)
     sprintf((char *)ptr_gs_run_game_file, "%s;%s;%s.gba", core_name, directory, filename); // Emulate a stub directory, stub doesn't have to exist (loader fixes later)
     sprintf((char *)ptr_gs_run_game_name, "%s", filename); // Expects the filename without any extension
 
@@ -340,7 +338,10 @@ void init_direct_loader(const char* core_name, const char* directory, const char
     if (dot_position != NULL) {
         *dot_position = '\0';
     }
-    #endif 
+#else 
+    sprintf(game_name_buf, "%s/%s/%s", roms_path, directory, filename);
+    sprintf(core_name_buf, "%s", core_name);
+#endif // SF2000
 
     // Add to recent history
     recent_games_add(core_name, filename, directory);
@@ -438,13 +439,15 @@ static void get_corename(const char *path, char *core_name, size_t size) {
     const char *end;
     char folder[64];
     char prefix[64];
-    snprintf(prefix, sizeof(prefix), "%s/ROMS/", system_dir);
+    strncpy(prefix, roms_path, sizeof(prefix) - 1);
 
     // Skip prefix if present
     if (strncmp(path, prefix, strlen(prefix)) == 0)
         start = path + strlen(prefix);
     else
         start = path;
+
+    if (start && start[0] == '/') start++;
 
     // Find end of the first directory
     end = strchr(start, '/');
@@ -584,7 +587,7 @@ static void load_current_thumbnail() {
             const RecentGame *recent_game = &recent_list[selected_index];
 
             if (recent_game->full_path[0] != '\0') {
-                snprintf(file_path, sizeof(file_path), "%s/ROMS/%s/%s", system_dir, recent_game->full_path, recent_game->game_name);
+                snprintf(file_path, sizeof(file_path), "%s/%s/%s", roms_path, recent_game->full_path, recent_game->game_name);
             } else {
                 // No full path available, skip thumbnail
                 thumbnail_cache_valid = 0;
@@ -604,7 +607,7 @@ static void load_current_thumbnail() {
             const FavoriteGame *favorite_game = &favorites_list[selected_index];
 
             if (favorite_game->full_path[0] != '\0') {
-                snprintf(file_path, sizeof(file_path), "%s/ROMS/%s/%s", system_dir, favorite_game->full_path, favorite_game->game_name);
+                snprintf(file_path, sizeof(file_path), "%s/%s/%s", roms_path, favorite_game->full_path, favorite_game->game_name);
             } else {
                 // No full path available, skip thumbnail
                 thumbnail_cache_valid = 0;
@@ -1171,7 +1174,7 @@ static void render_credits_screen() {
 
 void clean_path(char *path) {
     char prefix[64];
-    snprintf(prefix, sizeof(prefix), "%s/ROMS/", system_dir);
+    strncpy(prefix, roms_path, sizeof(prefix) - 1);
     size_t len = strlen(prefix);
 
     // remove prefix
@@ -1755,7 +1758,7 @@ static size_t bgm_file_size;
 
 void audio_init(void) {
     char music_path[128];
-    snprintf(music_path, sizeof(music_path), "%s/frogui/menu_music.wav", system_dir);
+    snprintf(music_path, sizeof(music_path), "%s/menu_music.wav", assets_dir);
     if (!load_file(music_path, &bgm_file, &bgm_file_size)) {
         bgm_enabled = false;
         return;
@@ -1778,7 +1781,7 @@ bool nav_init_once = false;
 void navigation_sfx(void) {
     if (!nav_init_once) {
         char nav_sound_path[128];
-        snprintf(nav_sound_path, sizeof(nav_sound_path), "%s/frogui/navigation.wav", system_dir);
+        snprintf(nav_sound_path, sizeof(nav_sound_path), "%s/navigation.wav", assets_dir);
         if (!load_file(nav_sound_path, &nav_file, &nav_file_size)) {
             sfx_enabled = false;
             return;
@@ -2372,17 +2375,75 @@ const char *parent_dir(const char *path) {
     return buf;
 }
 
+void fallback_get_roms_dir(char* roms_dir, size_t max_len) {
+    const char* home_dir = NULL;
+    char* allocated_dir = NULL;
+#if defined(DARTOS) || defined(SF2000)
+    if (environ_cb(RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY, &home_dir)) {
+        allocated_dir = (char*)parent_dir(home_dir);
+        home_dir = allocated_dir;
+    } else home_dir = "/mnt/sda1"; // No system directory available
+#else
+    home_dir = getenv("HOME");
+    if (home_dir == NULL) home_dir = getenv("USERPROFILE");
+#endif
+
+#ifdef _WIN32
+    snprintf(roms_dir, max_len, "%s\\ROMS", home_dir);
+#else
+    snprintf(roms_dir, max_len, "%s/ROMS", home_dir);
+#endif
+    if (allocated_dir) free(allocated_dir);
+}
+
 // Libretro API implementation
 void retro_init(void) {
+    // Set the roms directory
+    const char* dir = NULL;
+#ifdef RETRO_ENVIRONMENT_GET_ROMS_DIRECTORY
+    if (environ_cb(RETRO_ENVIRONMENT_GET_ROMS_DIRECTORY, &dir) && dir) {
+        strncpy(roms_path, dir, sizeof(roms_path) - 1);
+        roms_path[sizeof(roms_path) - 1] = '\0';
+    } else fallback_get_roms_dir(roms_path, sizeof(roms_path));
+#else 
+    fallback_get_roms_dir(roms_path, sizeof(roms_path));
+#endif
 
-    // Set the system directory
-    system_dir = NULL;
-    if (environ_cb(RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY, &system_dir) || !system_dir) {
-        system_dir = parent_dir(system_dir);
-    } else system_dir = "/mnt/sda1"; // No system directory available
+    size_t len = strlen(roms_path);
+    while (len > 1 && (roms_path[len - 1] == '/' || roms_path[len - 1] == '\\')) {
+        roms_path[len - 1] = '\0';
+        len--;
+    }
 
-    snprintf(roms_path, sizeof(roms_path), "%s/ROMS", system_dir);
-    snprintf(empty_dirs_cache_file, sizeof(empty_dirs_cache_file), "%s/configs/frogui_empty_dirs.cache", system_dir);
+    // Set the configs directory
+#ifdef RETRO_ENVIRONMENT_GET_CONFIG_DIRECTORY
+    dir = NULL;
+    if (environ_cb(RETRO_ENVIRONMENT_GET_CONFIG_DIRECTORY, &dir) && dir) {
+        strncpy(configs_dir, dir, sizeof(configs_dir) - 1);
+        configs_dir[sizeof(configs_dir) - 1] = '\0';
+    } else {
+        char* allocated_configs = parent_dir(roms_path);
+        snprintf(configs_dir, sizeof(configs_dir), "%s/configs", allocated_configs);
+        free(allocated_configs); 
+    }
+#else
+    char* allocated_configs = parent_dir(roms_path);
+    snprintf(configs_dir, sizeof(configs_dir), "%s/configs", allocated_configs);
+    free(allocated_configs);
+#endif
+
+    // Set the assets directory
+    dir = NULL;
+    if (environ_cb(RETRO_ENVIRONMENT_GET_CORE_ASSETS_DIRECTORY, &dir) && dir) {
+        strncpy(assets_dir, dir, sizeof(assets_dir) - 1);
+        assets_dir[sizeof(assets_dir) - 1] = '\0';
+    } else {
+        char* allocated_assets = parent_dir(roms_path);
+        snprintf(assets_dir, sizeof(assets_dir), "%s/assets/FrogUI", allocated_assets);
+        free(allocated_assets);
+    }
+
+    snprintf(empty_dirs_cache_file, sizeof(empty_dirs_cache_file), "%s/frogui_empty_dirs.cache", assets_dir);
 
     strcpy(os_settings_title, OS_NAME_LOWER);
     for (char *p = os_settings_title; *p; ++p)
@@ -2404,7 +2465,7 @@ void retro_init(void) {
     settings_init();
 
     char console_mappings_path[128];
-    snprintf(console_mappings_path, sizeof(console_mappings_path), "%s/frogui/console_mappings.opt", system_dir);
+    snprintf(console_mappings_path, sizeof(console_mappings_path), "%s/console_mappings.opt", assets_dir);
     load_console_mappings(console_mappings_path);
 
     recent_games_load();
