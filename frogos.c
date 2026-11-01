@@ -2378,7 +2378,7 @@ const char *parent_dir(const char *path) {
 void fallback_get_roms_dir(char* roms_dir, size_t max_len) {
     const char* home_dir = NULL;
     char* allocated_dir = NULL;
-#if defined(DARTOS) || defined(SF2000)
+#if defined(NOCTURNAL) || defined(SF2000)
     if (environ_cb(RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY, &home_dir)) {
         allocated_dir = (char*)parent_dir(home_dir);
         home_dir = allocated_dir;

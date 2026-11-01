@@ -53,7 +53,7 @@ bool fallback_is_zip_wqw_file(const char *file_path, bool *is_wqw) {
     return false;
 }
 
-#ifndef DARTOS
+#ifndef NOCTURNAL
 unsigned long long fallback_os_get_tick_count() {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);

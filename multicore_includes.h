@@ -18,16 +18,16 @@ extern void fallback_wrap_run_game(const char *path, int state);
 #include <stockfw.h>
 #include <debug.h>
 #include <core.h>
-#elif defined(DARTOS)
-#define OS_NAME_LOWER "dartos"
+#elif defined(NOCTURNAL)
+#define OS_NAME_LOWER "phobos"
 #include "libretro.h"
 #include <sys/stat.h>
 #include <core_api.h>
-#include <dartos.h>
+#include <gateway.h>
 #include <frontend_functions.h>
 #define load_rgb565_image fallback_load_rgb565_image
 #define is_zip_wqw_file fallback_is_zip_wqw_file
-#define os_get_tick_count xTaskGetTickCount
+#define os_get_tick_count get_time_ms
 #define wrap_run_game fallback_wrap_run_game
 extern uint32_t g_preview_width;
 extern uint32_t g_preview_height;

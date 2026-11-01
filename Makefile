@@ -47,16 +47,16 @@ else ifeq ($(platform), sf2000)
    CFLAGS += -DSF2000 -I ../../../
    CXXFLAGS := $(CFLAGS)
    STATIC_LINKING = 1
-else ifeq ($(platform), dartos)
+else ifeq ($(platform), nocturnal)
    TARGET := _libretro_$(platform).a
-   MIPS=/opt/mips32-mti-elf/2019.09-03-2/bin/mips-mti-elf-
+   MIPS=/opt/frog-toolchain/mipsel-mti-elf_stable/bin/mipsel-mti-elf-
    CC = $(MIPS)gcc
    CXX = $(MIPS)g++
    AR = $(MIPS)ar
    CFLAGS = -EL -march=mips32 -mtune=mips32 -msoft-float -G0 -mno-abicalls -fno-pic
    CFLAGS += -ffast-math -fomit-frame-pointer -ffunction-sections -fdata-sections
    CFLAGS += -O3 -DNDEBUG  # -O3 for speed, NDEBUG removes asserts
-   CFLAGS += -DDARTOS -I ../../include -I ../../libretro-common/include
+   CFLAGS += -DNOCTURNAL -I ../../include -I ../../libretro-common/include
    CXXFLAGS := $(CFLAGS)
    SOURCES_C += fallback_functions.c
    STATIC_LINKING = 1
