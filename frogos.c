@@ -1797,9 +1797,6 @@ void navigation_sfx(void) {
     sfx_play(&nav, 128);  // volume: 0–256
 }
 
-static unsigned long last_input_time = 0;  // Store the time when input was last processed
-static const unsigned long input_delay_ms = 320;  // Input delay in milliseconds (to prevent too fast of inputs causing low fps)
-
 // Handle input
 static void handle_input() {
     if (!input_poll_cb || !input_state_cb) return;
@@ -1826,16 +1823,8 @@ static void handle_input() {
     int left = input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT);
     int right = input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT);
 
-    // Get the current time in milliseconds
-    unsigned long current_time = os_get_tick_count();
-
-    if ((current_time - last_input_time < input_delay_ms) && ((prev_input[0] && !up) || (prev_input[1] && !down) || (prev_input[7] && !left) || (prev_input[8] && !right))) {
-        return;  // Skip input processing if the delay hasn't passed yet
-    }
-
     if ((prev_input[0] && !up) || (prev_input[1] && !down) || (prev_input[7] && !left) || (prev_input[8] && !right)) { // Play audio for up down left and right
         if (sfx_enabled) navigation_sfx();
-        last_input_time = current_time;
     }
 
     // Flag to determine if the menu needs to be redrawn
