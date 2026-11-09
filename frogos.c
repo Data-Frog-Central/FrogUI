@@ -11,7 +11,6 @@
 #include <time.h>
 #include <ctype.h>
 
-#include "libretro.h"
 #include "font.h"
 #include "render.h"
 #include "theme.h"
@@ -20,6 +19,8 @@
 #include "settings.h"
 #include "frogos.h"
 #include "multicore_includes.h"
+
+struct retro_private_accel_functions accel_funcs = {0};
 
 // Console to core name mapping
 typedef struct {
@@ -414,7 +415,7 @@ static void show_cache_rebuild_screen(void) {
     if (!framebuffer || !video_cb) return;
 
     // Fill background
-    render_fill_rect(framebuffer, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, theme_bg());
+    render_fill_rect(framebuffer, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, theme_bg());
 
     // Draw centered message
     const char* msg = "Rebuilding folder cache...";
@@ -1386,7 +1387,7 @@ static void render_menu() {
         int box_height = 180;
         int box_x = (SCREEN_WIDTH - box_width) / 2;
         int box_y = (SCREEN_HEIGHT - box_height) / 2;
-        render_fill_rect(framebuffer, box_x, box_y, box_width, box_height, COLOR_BG);
+        render_fill_rect(framebuffer, SCREEN_WIDTH, SCREEN_HEIGHT, box_x, box_y, box_width, box_height, COLOR_BG);
 
         // Draw title using theme colors
         const char *title = "QUICK JUMP";
@@ -2441,6 +2442,7 @@ void retro_init(void) {
 
     strcpy(ptr_gs_run_game_name, "FrogUI"); // Sets the name for the pause menu
     framebuffer = (uint16_t*)malloc(SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(uint16_t));
+    environ_cb(RETRO_ENVIRONMENT_GET_HCGE_ACCEL_FUNCTIONS, &accel_funcs);
 
     // Seed random number generator for random game picker
     srand(time(NULL));

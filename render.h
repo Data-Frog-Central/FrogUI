@@ -40,6 +40,8 @@
 #define SCROLL_DELAY_FRAMES 60      // Delay before scrolling starts (1 second at 60fps)
 #define SCROLL_SPEED_FRAMES 8       // Frames between scroll steps (slower = easier to read)
 
+extern struct retro_private_accel_functions accel_funcs;
+
 // Initialize rendering system
 void render_init(uint16_t *framebuffer);
 
@@ -47,7 +49,7 @@ void render_init(uint16_t *framebuffer);
 void render_clear_screen(uint16_t *framebuffer);
 
 // Draw a filled rectangle
-void render_fill_rect(uint16_t *framebuffer, int x, int y, int width, int height, uint16_t color);
+void render_fill_rect(uint16_t *framebuffer, int fb_width, int fb_height, int x, int y, int width, int height, uint16_t color);
 
 // Draw a rounded rectangle (pill shape)
 void render_rounded_rect(uint16_t *framebuffer, int x, int y, int width, int height, int radius, uint16_t color);

@@ -22,22 +22,45 @@ void render_init(uint16_t *framebuffer) {
 
 void render_clear_screen(uint16_t *framebuffer) {
     if (!framebuffer) return;
-    
-    // Fill with background color
-    for (int i = 0; i < SCREEN_WIDTH * SCREEN_HEIGHT; i++) {
-        framebuffer[i] = COLOR_BG;
-    }
+    render_fill_rect(framebuffer, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, COLOR_BG); // Fill with background color
 }
 
-void render_fill_rect(uint16_t *framebuffer, int x, int y, int width, int height, uint16_t color) {
+void render_fill_rect(uint16_t *framebuffer, int fb_width, int fb_height, int x, int y, int width, int height, uint16_t color) {
     if (!framebuffer) return;
+    if (x >= fb_width || y >= fb_height || x + width <= 0 || y + height <= 0) return; // Off-screen checks
     
-    for (int py = y; py < y + height && py < SCREEN_HEIGHT; py++) {
-        for (int px = x; px < x + width && px < SCREEN_WIDTH; px++) {
-            if (px >= 0 && py >= 0) {
-                framebuffer[py * SCREEN_WIDTH + px] = color;
+    if (x < 0) { width += x; x = 0; } // Clip left boundary
+    if (y < 0) { height += y; y = 0; } // Clip top boundary
+    if (x + width > fb_width) width = fb_width - x; // Clip right boundary
+    if (y + height > fb_height) height = fb_height - y; // Clip bottom boundary
+    if (width <= 0 || height <= 0) return; // Safety check after clipping
+    
+    int area = width * height;
+
+    if (!accel_funcs.hcge_fb_fill_rect || area < 512) { // Maybe figure out a better way to guess
+        for (int py = y; py < y + height; ++py) {
+            uint16_t *row = &framebuffer[py * fb_width + x];
+            for (int px = 0; px < width; ++px) {
+                row[px] = color;
             }
         }
+        return;
+    }
+
+    if (accel_funcs.hcge_fb_fill_rect) {
+        FrameInfo fill_frame = {
+            .frame = framebuffer,
+            .full_width = fb_width,
+            .full_height = fb_height,
+            .width = width,
+            .height = height,
+            .pitch = fb_width * sizeof(uint16_t),
+            .x = x,
+            .y = y,
+            .rgb32 = false
+        };
+        accel_funcs.hcge_fb_fill_rect(fill_frame, color);
+        return;
     }
 }
 
@@ -45,8 +68,8 @@ void render_rounded_rect(uint16_t *framebuffer, int x, int y, int width, int hei
     if (!framebuffer) return;
     
     // Draw main body (excluding corners)
-    render_fill_rect(framebuffer, x + radius, y, width - 2 * radius, height, color);
-    render_fill_rect(framebuffer, x, y + radius, width, height - 2 * radius, color);
+    render_fill_rect(framebuffer, SCREEN_WIDTH, SCREEN_HEIGHT, x + radius, y, width - 2 * radius, height, color);
+    render_fill_rect(framebuffer, SCREEN_WIDTH, SCREEN_HEIGHT, x, y + radius, width, height - 2 * radius, color);
     
     // Draw rounded corners using circle approximation
     for (int corner_y = 0; corner_y < radius; corner_y++) {
@@ -316,9 +339,9 @@ void render_thumbnail(uint16_t *framebuffer, const Thumbnail *thumb) {
     int frame_h = display_height + 4;
     
     // Draw border frame
-    render_fill_rect(framebuffer, frame_x, frame_y, frame_w, frame_h, FRAME_COLOR);
+    render_fill_rect(framebuffer, SCREEN_WIDTH, SCREEN_HEIGHT, frame_x, frame_y, frame_w, frame_h, FRAME_COLOR);
     // Draw inner background
-    render_fill_rect(framebuffer, start_x, start_y, display_width, display_height, BG_COLOR);
+    render_fill_rect(framebuffer, SCREEN_WIDTH, SCREEN_HEIGHT, start_x, start_y, display_width, display_height, BG_COLOR);
     
     // Draw scaled thumbnail (simple nearest neighbor for now)
     for (int y = 0; y < display_height; y++) {
